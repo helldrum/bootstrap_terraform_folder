@@ -27,33 +27,36 @@ def parse_args_or_exit():
     return check_args_valid_or_exit(parser, args)
 
 
-def check_args_valid_or_exit(parser, args):
-    if not args.tf_folders_path:
-        logging.error("arg --tf_folders_path is missing, exiting early ...")
+def check_arg_exist_or_exit(parser, arg, arg_name):
+    if not arg:
+        logging.error(f"arg --{arg_name} is missing, exiting early ...")
         parser.print_help()
         sys.exit(-1)
 
-    if not args.gcs_backend_name:
-        logging.error("arg --gcs_backend_name is missing, exiting early ...")
-        parser.print_help()
+
+def check_string_match_pattern_or_exist(pattern, string_to_match, error_message):
+    pattern = re.compile(pattern)
+    if not pattern.match(string_to_match):
+        logging.error(error_message)
         sys.exit(-1)
+
+
+def check_args_valid_or_exit(parser, args):
+    check_arg_exist_or_exit(parser, args.tf_folders_path, "tf_folders_path")
+    check_arg_exist_or_exit(parser, args.gcs_backend_name, "gcs_backend_name")
 
     tf_folder_naming_pattern = "^[0-9]{3}_(([a-z])*_){1,}([a-z])*$"
     tf_folder_basename = os.path.basename(args.tf_folders_path)
-    pattern = re.compile(tf_folder_naming_pattern)
-    if not pattern.match(tf_folder_basename):
-        logging.error(
-            f"arg --tf_folders_path is not valid, given name {tf_folder_basename} does't respect the naming convention {tf_folder_naming_pattern} (ex 000_enable_api) , exiting early ..."
-        )
-        sys.exit(-1)
+    error_message = f"arg --tf_folders_path is not valid, given name {tf_folder_basename} does't respect the naming convention {tf_folder_naming_pattern} (ex 000_enable_api) , exiting early ..."
+    check_string_match_pattern_or_exist(
+        tf_folder_naming_pattern, tf_folder_basename, error_message
+    )
 
-    gcs_name_pattern = "^[0-9a-z_.-]{1,}$"
-    gcs_pattern = re.compile(gcs_name_pattern)
-    if not gcs_pattern.match(args.gcs_backend_name):
-        logging.error(
-            f"arg --gcs_backend_name is not valid, given name {args.gcs_backend_name} does't respect the naming convention (only lower case, hyphen, underscore), exiting early ..."
-        )
-        sys.exit(-1)
+    gcs_naming_pattern = "^[0-9a-z_.-]{1,}$"
+    error_message = f"arg --gcs_backend_name is not valid, given name {args.gcs_backend_name} does't respect the naming convention (only lower case, hyphen, underscore), exiting early ..."
+    check_string_match_pattern_or_exist(
+        gcs_naming_pattern, args.gcs_backend_name, error_message
+    )
 
     return args
 
@@ -113,26 +116,34 @@ variable.tf
     )
 
 
+def write_file(filename, content):
+    with open(filename, "w") as file:
+        file.write(content)
+
+
 def generate_tf_folder_and_files(args, config_file_content, variable_content):
     logging.info(f"create folder {args.tf_folders_path}")
-    os.mkdir(args.tf_folders_path)
+    
+    try:
+        os.mkdir(args.tf_folders_path)
+    except FileExistsError:
+        logging.error(f"folder {args.tf_folders_path} already exist, skip creation and exist early ...")
+        sys.exit(-1)
 
     config_file = os.path.join(args.tf_folders_path + "/config.tf")
-
-    with open(config_file, "w") as file:
-        file.write(config_file_content)
-
     variable_file = os.path.join(args.tf_folders_path + "/variables.tf")
 
-    with open(variable_file, "w") as file:
-        file.write(variable_content)
+    write_file(config_file, config_file_content)
+    write_file(variable_file, variable_content)
 
 
 def main():
     args = parse_args_or_exit()
     config_file_content = generate_config_file_content(args)
     variable_content = generate_variable_file_content()
-    print_resume_configuration(args.tf_folders_path, config_file_content, variable_content)
+    print_resume_configuration(
+        args.tf_folders_path, config_file_content, variable_content
+    )
 
     if not yes_no_question("Is this configuration correct [y/n] ?"):
         logging.info("ok then, maybe trying again later? ¯\_(ツ)_/¯")
@@ -140,6 +151,7 @@ def main():
 
     generate_tf_folder_and_files(args, config_file_content, variable_content)
     logging.info("files and folder generated")
+
 
 if __name__ == "__main__":
     main()

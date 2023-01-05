@@ -1,0 +1,110 @@
+[1mdiff --git a/bootstrap_terraform_folder.py b/bootstrap_terraform_folder.py[m
+[1mindex 60079a7..b8f0cb4 100755[m
+[1m--- a/bootstrap_terraform_folder.py[m
+[1m+++ b/bootstrap_terraform_folder.py[m
+[36m@@ -27,33 +27,36 @@[m [mdef parse_args_or_exit():[m
+     return check_args_valid_or_exit(parser, args)[m
+ [m
+ [m
+[31m-def check_args_valid_or_exit(parser, args):[m
+[31m-    if not args.tf_folders_path:[m
+[31m-        logging.error("arg --tf_folders_path is missing, exiting early ...")[m
+[32m+[m[32mdef check_arg_exist_or_exit(parser, arg, arg_name):[m
+[32m+[m[32m    if not arg:[m
+[32m+[m[32m        logging.error(f"arg --{arg_name} is missing, exiting early ...")[m
+         parser.print_help()[m
+         sys.exit(-1)[m
+ [m
+[31m-    if not args.gcs_backend_name:[m
+[31m-        logging.error("arg --gcs_backend_name is missing, exiting early ...")[m
+[31m-        parser.print_help()[m
+[32m+[m
+[32m+[m[32mdef check_string_match_pattern_or_exist(pattern, string_to_match, error_message):[m
+[32m+[m[32m    pattern = re.compile(pattern)[m
+[32m+[m[32m    if not pattern.match(string_to_match):[m
+[32m+[m[32m        logging.error(error_message)[m
+         sys.exit(-1)[m
+ [m
+[32m+[m
+[32m+[m[32mdef check_args_valid_or_exit(parser, args):[m
+[32m+[m[32m    check_arg_exist_or_exit(parser, args.tf_folders_path, "tf_folders_path")[m
+[32m+[m[32m    check_arg_exist_or_exit(parser, args.gcs_backend_name, "gcs_backend_name")[m
+[32m+[m
+     tf_folder_naming_pattern = "^[0-9]{3}_(([a-z])*_){1,}([a-z])*$"[m
+     tf_folder_basename = os.path.basename(args.tf_folders_path)[m
+[31m-    pattern = re.compile(tf_folder_naming_pattern)[m
+[31m-    if not pattern.match(tf_folder_basename):[m
+[31m-        logging.error([m
+[31m-            f"arg --tf_folders_path is not valid, given name {tf_folder_basename} does't respect the naming convention {tf_folder_naming_pattern} (ex 000_enable_api) , exiting early ..."[m
+[31m-        )[m
+[31m-        sys.exit(-1)[m
+[32m+[m[32m    error_message = f"arg --tf_folders_path is not valid, given name {tf_folder_basename} does't respect the naming convention {tf_folder_naming_pattern} (ex 000_enable_api) , exiting early ..."[m
+[32m+[m[32m    check_string_match_pattern_or_exist([m
+[32m+[m[32m        tf_folder_naming_pattern, tf_folder_basename, error_message[m
+[32m+[m[32m    )[m
+ [m
+[31m-    gcs_name_pattern = "^[0-9a-z_.-]{1,}$"[m
+[31m-    gcs_pattern = re.compile(gcs_name_pattern)[m
+[31m-    if not gcs_pattern.match(args.gcs_backend_name):[m
+[31m-        logging.error([m
+[31m-            f"arg --gcs_backend_name is not valid, given name {args.gcs_backend_name} does't respect the naming convention (only lower case, hyphen, underscore), exiting early ..."[m
+[31m-        )[m
+[31m-        sys.exit(-1)[m
+[32m+[m[32m    gcs_naming_pattern = "^[0-9a-z_.-]{1,}$"[m
+[32m+[m[32m    error_message = f"arg --gcs_backend_name is not valid, given name {args.gcs_backend_name} does't respect the naming convention (only lower case, hyphen, underscore), exiting early ..."[m
+[32m+[m[32m    check_string_match_pattern_or_exist([m
+[32m+[m[32m        gcs_naming_pattern, args.gcs_backend_name, error_message[m
+[32m+[m[32m    )[m
+ [m
+     return args[m
+ [m
+[36m@@ -113,26 +116,34 @@[m [mvariable.tf[m
+     )[m
+ [m
+ [m
+[32m+[m[32mdef write_file(filename, content):[m
+[32m+[m[32m    with open(filename, "w") as file:[m
+[32m+[m[32m        file.write(content)[m
+[32m+[m
+[32m+[m
+ def generate_tf_folder_and_files(args, config_file_content, variable_content):[m
+     logging.info(f"create folder {args.tf_folders_path}")[m
+[31m-    os.mkdir(args.tf_folders_path)[m
+[32m+[m[41m    [m
+[32m+[m[32m    try:[m
+[32m+[m[32m        os.mkdir(args.tf_folders_path)[m
+[32m+[m[32m    except FileExistsError:[m
+[32m+[m[32m        logging.error(f"folder {args.tf_folders_path} already exist, skip creation and exist early ...")[m
+[32m+[m[32m        sys.exit(-1)[m
+ [m
+     config_file = os.path.join(args.tf_folders_path + "/config.tf")[m
+[31m-[m
+[31m-    with open(config_file, "w") as file:[m
+[31m-        file.write(config_file_content)[m
+[31m-[m
+     variable_file = os.path.join(args.tf_folders_path + "/variables.tf")[m
+ [m
+[31m-    with open(variable_file, "w") as file:[m
+[31m-        file.write(variable_content)[m
+[32m+[m[32m    write_file(config_file, config_file_content)[m
+[32m+[m[32m    write_file(variable_file, variable_content)[m
+ [m
+ [m
+ def main():[m
+     args = parse_args_or_exit()[m
+     config_file_content = generate_config_file_content(args)[m
+     variable_content = generate_variable_file_content()[m
+[31m-    print_resume_configuration(args.tf_folders_path, config_file_content, variable_content)[m
+[32m+[m[32m    print_resume_configuration([m
+[32m+[m[32m        args.tf_folders_path, config_file_content, variable_content[m
+[32m+[m[32m    )[m
+ [m
+     if not yes_no_question("Is this configuration correct [y/n] ?"):[m
+         logging.info("ok then, maybe trying again later? ¯\_(ツ)_/¯")[m
+[36m@@ -141,5 +152,6 @@[m [mdef main():[m
+     generate_tf_folder_and_files(args, config_file_content, variable_content)[m
+     logging.info("files and folder generated")[m
+ [m
+[32m+[m
+ if __name__ == "__main__":[m
+     main()[m
