@@ -103,7 +103,7 @@ def generate_variable_file_content():
 
 def print_resume_configuration(tf_folders_path, config_file, variable_content):
     print(
-        f"""Folder {tf_folders_path} will be create, with thoses files :
+        f"""Folder {tf_folders_path} will be created, with thoses files :
 
 config.tf
 
